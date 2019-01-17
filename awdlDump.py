@@ -1,4 +1,8 @@
 #!/usr/bin/env python2.7
+
+# This code is ugly hack so be gentle done quickly for research purpose. Be
+# gently
+
 from __future__ import print_function
 import traceback
 from scapy.all import *
