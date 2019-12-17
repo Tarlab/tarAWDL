@@ -29,7 +29,7 @@ import os
 import datetime
 
 
-class TLV():
+class TLV:
     """
     Instances of this class represent one TLV element.
 
@@ -86,23 +86,22 @@ class TLV():
 
         :return: string containing the contents of value field.
         """
-        if self.value_type() == 0x0c and self.value_length() > 2:
+        if self.value_type() == 0x0C and self.value_length() > 2:
             output = []
-            output.append('({:02x}{:02x})'.format(
-                self.value[0], self.value[1]))
-            output.append('{}'.format(binascii.hexlify(
-                bytearray(self.value[2:]))))
-            return ' '.join(output)
+            output.append("({}:02x}{:02x})".format(self.value[0], self.value[1]))
+            output.append("{}".format(binascii.hexlify(bytearray(self.value[2:]))))
+            return " ".join(output)
         else:
-            return '{}'.format(binascii.hexlify(bytearray(self.value)))
+            return "{}".format(binascii.hexlify(bytearray(self.value)))
 
     def string(self):
         """Get string containing contents of this TLV"""
-        return 't:0x{:02x} l:{} bytes v:[{}]'.format(
-            self.type, self.value_length(), self.print_value())
+        return "t:0x{:02x} l:{} bytes v:[{}]".format(
+            self.type, self.value_length(), self.print_value()
+        )
 
 
-class VData():
+class VData:
     """
     VData contains all data (TLVs) parsed from vendor -specific data of single
     advertising packet.
@@ -157,22 +156,22 @@ class VData():
     def string(self):
         """Get a string containing description of this vdata and its contents"""
         output = []
-        indent = '\t '
-        output.append('\t---[{}]'.format(self.tlvs[0].pkt_count))
+        indent = "\t "
+        output.append("\t---[{}]".format(self.tlvs[0].pkt_count))
         if self.delta is not None:
-            output[0] += ' +{}s'.format(self.delta.total_seconds())
+            output[0] += " +{}s".format(self.delta.total_seconds())
 
         for tlv in self.tlvs:
-            output.append('{}{}'.format(indent, tlv.string()))
+            output.append("{}{}".format(indent, tlv.string()))
 
-        output[-1] += '(@{})'.format(self.created.isoformat())
+        output[-1] += "(@{})".format(self.created.isoformat())
         if self.duplicates > 0:
-            output.append('\t--Repeated {} times'.format(self.duplicates))
+            output.append("\t--Repeated {} times".format(self.duplicates))
 
-        return '\n'.join(output)
+        return "\n".join(output)
 
 
-class Device():
+class Device:
     """
     Device contains all data received from a single device
 
@@ -246,12 +245,12 @@ def parse_vendor_data(data):
 
     while i < len(data) - 1:
         typ = data[i]
-        i = i+1
+        i = i + 1
         length = data[i]
-        i = i+1
+        i = i + 1
 
         if i + length <= len(data):
-            val = data[i:i+length]
+            val = data[i : i + length]
             ret.append(TLV(typ, val))
             i = i + length
         else:
@@ -262,7 +261,7 @@ def parse_vendor_data(data):
 
 def get_uint16(buf):
     """Read one unsigned 16-bit little endian value from given buffer"""
-    val, = struct.unpack('<H', buf)
+    (val,) = struct.unpack("<H", buf)
     return val
 
 
@@ -288,15 +287,15 @@ def parse_json_object(devices, data):
     """
     obj = json.loads(data)
 
-    if 'data' in obj:
-        addr = obj['device']['address']
-        datas = obj['data']
+    if "data" in obj:
+        addr = obj["device"]["address"]
+        datas = obj["data"]
         for elem in datas:
-            decoded = decode_data(elem['data'])
-            typ = elem['type']
-            if typ == 0xff and len(decoded) > 2:
+            decoded = decode_data(elem["data"])
+            typ = elem["type"]
+            if typ == 0xFF and len(decoded) > 2:
                 vendor = get_uint16(decoded[0:2])
-                if vendor == 0x004c:
+                if vendor == 0x004C:
                     dev = None
                     if addr in devices:
                         dev = devices[addr]
@@ -323,17 +322,16 @@ def from_unix_socket(name):
         try:
             os.remove(name)
         except OSError as err:
-            print('Unable to remove existing socket {} : {}'.format(
-                name, err.strerror))
+            print("Unable to remove existing socket {} : {}".format(name, err.strerror))
             return
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(name)
-    print('Socket bound to {}'.format(name))
+    print("Socket bound to {}".format(name))
     sock.listen(1)
-    print('Waiting for connection')
+    print("Waiting for connection")
     conn, client = sock.accept()
-    print('Connection from {}'.format(client))
+    print("Connection from {}".format(client))
     devices = {}
     with conn.makefile() as file:
         for line in file:
@@ -343,25 +341,31 @@ def from_unix_socket(name):
     sock.close()
 
     for addr, dev in devices.items():
-        print('{} (last update @{}) :'.format(
-            addr, dev.last_update.isoformat()))
+        print("{} (last update @{}) :".format(addr, dev.last_update.isoformat()))
         for vdata in dev.vdata:
             print(vdata.string())
 
-    print('Idents:')
+    print("Idents:")
     for addr, dev in devices.items():
         if dev.idents:
-            identstr = ','.join(['{}'.format(
-                binascii.hexlify(bytearray(x))) for x in dev.idents])
-            print('\t{} -> {} ({} - {})'.format(
-                identstr, addr, dev.vdata[0].created.isoformat(),
-                dev.last_update.isoformat()))
+            identstr = ",".join(
+                ["{}".format(binascii.hexlify(bytearray(x))) for x in dev.idents]
+            )
+            print(
+                "\t{} -> {} ({} - {})".format(
+                    identstr,
+                    addr,
+                    dev.vdata[0].created.isoformat(),
+                    dev.last_update.isoformat(),
+                )
+            )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--unix', default='')
+    parser.add_argument("--unix", default="")
     args = parser.parse_args()
-    if args.unix != '':
+    if args.unix != "":
         from_unix_socket(args.unix)
     else:
-        print('use --unix <path> to specify the unix socket to listen on')
+        print("use --unix <path> to specify the unix socket to listen on")
