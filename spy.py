@@ -86,19 +86,18 @@ class TLV:
 
         :return: string containing the contents of value field.
         """
-        if self.value_type() == 0x0C and self.value_length() > 2:
+        if self.value_type() == 0x10 and self.value_length() > 2:
+            # 'nearby' notification
             output = []
-            output.append("({}:02x}{:02x})".format(self.value[0], self.value[1]))
-            output.append("{}".format(binascii.hexlify(bytearray(self.value[2:]))))
+            output.append(f"({self.value[0]:02x}{self.value[1]:02x}")
+            output.append(f"{binascii.hexlify(bytearray(self.value[2:]))}")
             return " ".join(output)
         else:
-            return "{}".format(binascii.hexlify(bytearray(self.value)))
+            return f"{binascii.hexlify(bytearray(self.value))}"
 
     def string(self):
         """Get string containing contents of this TLV"""
-        return "t:0x{:02x} l:{} bytes v:[{}]".format(
-            self.type, self.value_length(), self.print_value()
-        )
+        return f"t:0x{self.type:02x} l:{self.value_length()} bytes v:[{self.print_value()}]"
 
 
 class VData:
@@ -157,16 +156,19 @@ class VData:
         """Get a string containing description of this vdata and its contents"""
         output = []
         indent = "\t "
-        output.append("\t---[{}]".format(self.tlvs[0].pkt_count))
+        if not self.tlvs:
+            output.append("\t--[none]")
+        else:
+            output.append(f"\t---[{self.tlvs[0].pkt_count}]")
         if self.delta is not None:
-            output[0] += " +{}s".format(self.delta.total_seconds())
+            output[0] += f" +{self.delta.total_seconds()}s"
 
         for tlv in self.tlvs:
-            output.append("{}{}".format(indent, tlv.string()))
+            output.append(f"{indent}{tlv.string()}")
 
-        output[-1] += "(@{})".format(self.created.isoformat())
+        output[-1] += f"(@{self.created.isoformat()})"
         if self.duplicates > 0:
-            output.append("\t--Repeated {} times".format(self.duplicates))
+            output.append(f"\t--Repeated {self.duplicates} times")
 
         return "\n".join(output)
 
@@ -322,16 +324,16 @@ def from_unix_socket(name):
         try:
             os.remove(name)
         except OSError as err:
-            print("Unable to remove existing socket {} : {}".format(name, err.strerror))
+            print(f"Unable to remove existing socket {name} : {err.strerror}")
             return
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(name)
-    print("Socket bound to {}".format(name))
+    print(f"Socket bound to {name}")
     sock.listen(1)
     print("Waiting for connection")
     conn, client = sock.accept()
-    print("Connection from {}".format(client))
+    print(f"Connection from {client}")
     devices = {}
     with conn.makefile() as file:
         for line in file:
@@ -341,7 +343,7 @@ def from_unix_socket(name):
     sock.close()
 
     for addr, dev in devices.items():
-        print("{} (last update @{}) :".format(addr, dev.last_update.isoformat()))
+        print(f"{addr} (last update @{dev.last_update.isoformat()}) :")
         for vdata in dev.vdata:
             print(vdata.string())
 
@@ -349,15 +351,10 @@ def from_unix_socket(name):
     for addr, dev in devices.items():
         if dev.idents:
             identstr = ",".join(
-                ["{}".format(binascii.hexlify(bytearray(x))) for x in dev.idents]
+                [f"{binascii.hexlify(bytearray(x))}" for x in dev.idents]
             )
             print(
-                "\t{} -> {} ({} - {})".format(
-                    identstr,
-                    addr,
-                    dev.vdata[0].created.isoformat(),
-                    dev.last_update.isoformat(),
-                )
+                f"\t{identstr} -> {addr} ({dev.vdata[0].created.isoformat()} - {dev.last_update.isoformat()})"
             )
 
 
