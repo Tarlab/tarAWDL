@@ -43,6 +43,48 @@ KNOWN_TYPES: Dict[int, str] = {
 }
 
 
+class IdHash:
+    """
+    Hashed identity values parsed from advertised data.
+    Length of hashed data can be 2 or 3 bytes
+
+    Attributes:
+        hashes: list containing hashes parsed from data (in the order they appeared)
+    """
+
+    hashes: List[bytes]
+
+    def __init__(self, hashes: List[bytes]):
+        self.hashes = hashes
+        self._cmpstr = "".join([h.hex() for h in hashes])
+
+    def print(self) -> str:
+        out = []
+        for idx, h in enumerate(self.hashes):
+            out.append(f"{{{idx}}}:{h.hex()}")
+        return ",".join(out)
+
+    def compare_to(self, id: "IdHash") -> bool:
+        return self._cmpstr == id._cmpstr
+
+    @staticmethod
+    def from_data(data: bytes, hlen: int = 2) -> Optional["IdHash"]:
+        """
+        Parse hashes from given data. The length if single hash
+        is hlen bytes
+        """
+        dlen = len(data)
+        if dlen < hlen:
+            return None
+        h = []
+        offset = 0
+        while offset + hlen <= dlen:
+            h.append(data[offset : offset + hlen])
+            offset += hlen
+
+        return IdHash(h)
+
+
 class TLV:
     """
     Instances of this class represent one TLV element.
@@ -64,6 +106,8 @@ class TLV:
         self.type = t
         self.value = v
         self.pkt_count = 0
+        # parsed IdHash, if any
+        self._ids: Optional[IdHash] = None
 
     def value_type(self) -> int:
         """Get type of this TLV"""
@@ -76,6 +120,43 @@ class TLV:
     def value_length(self) -> int:
         """Get length of the value in bytes"""
         return len(self.value)
+
+    def contains_ids(self) -> bool:
+        if self._ids is not None:
+            return True
+        elif self.type == 0x05 or self.type == 0x0F:
+            return True
+        else:
+            return False
+
+    def first_nonzero_idx(self) -> int:
+        """
+        Get index of first non-zero value byte
+        """
+        i = 0
+        while i < self.value_length():
+            if self.value[i] != 0:
+                return i
+            i += 1
+        return -1
+
+    def get_ids(self) -> Optional[IdHash]:
+        """
+        Get the ID hashes, if this TLV contains any.
+        """
+        if self._ids is not None:
+            return self._ids
+
+        if self.type == 0x05 and self.value_length() > 17:
+            idx = self.first_nonzero_idx()
+            if idx == -1 or idx + 1 + 8 > self.value_length():
+                return None
+
+            self._ids = IdHash.from_data(self.value[idx + 1 : idx + 1 + 8])
+        elif self.type == 0x0F and self.value_length() >= 18:
+            self._ids = IdHash.from_data(self.value[5:])
+
+        return self._ids
 
     def compare_to(self, tlv: "TLV") -> bool:
         """
@@ -115,6 +196,24 @@ class TLV:
             output.append(f"Clipboard: 0x{clip:02x}")
             output.append(f"Seqno: 0x{seq:02x}")
             output.append(f"Data: 0x{self.value[3:].hex()}")
+        elif self.value_type() == 0x05:
+            idx = self.first_nonzero_idx()
+            if idx == -1 or self.value_length() < 18:
+                output.append(f"<malformed: 0x{self.value.hex()}>")
+            else:
+                ids = self.get_ids()
+                output.append(f"Zeros:{self.value[0:idx].hex()}")
+                output.append(f"st:0x{self.value[idx]:02x}")
+                if ids is None:
+                    output.append(f"Hashes: <none>")
+                    if idx + 1 < self.value_length():
+                        output.append(f"Data: {self.value[idx+1:].hex()}")
+                else:
+                    output.append(f"Hashes: {ids.print()}")
+                if idx + 1 + 8 < self.value_length():
+                    output.append(f"rest:{self.value[idx+1+8:].hex()}")
+
+            # output.append(f"Raw:<{self.value.hex()}>")
         else:
             output.append(f"{self.value.hex()}")
 
