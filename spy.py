@@ -27,6 +27,7 @@ import struct
 import socket
 import os
 import datetime
+from typing import Dict, List, Optional
 
 
 class TLV:
@@ -40,7 +41,7 @@ class TLV:
                     from
     """
 
-    def __init__(self, t, v):
+    def __init__(self, t: int, v: bytes):
         """
         Create new instance of TLV with given type and value
 
@@ -51,19 +52,19 @@ class TLV:
         self.value = v
         self.pkt_count = 0
 
-    def value_type(self):
+    def value_type(self) -> int:
         """Get type of this TLV"""
         return self.type
 
-    def value_data(self):
+    def value_data(self) -> bytes:
         """Get value of this TLV"""
         return self.value
 
-    def value_length(self):
+    def value_length(self) -> int:
         """Get length of the value in bytes"""
         return len(self.value)
 
-    def compare_to(self, tlv):
+    def compare_to(self, tlv: "TLV") -> bool:
         """
         Compare this TLV to another.
 
@@ -78,7 +79,7 @@ class TLV:
             return False
         return True
 
-    def print_value(self):
+    def print_value(self) -> str:
         """
         Print the contents of this TLVs value.
 
@@ -95,7 +96,7 @@ class TLV:
         else:
             return f"{binascii.hexlify(bytearray(self.value))}"
 
-    def string(self):
+    def string(self) -> str:
         """Get string containing contents of this TLV"""
         return f"t:0x{self.type:02x} l:{self.value_length()} bytes v:[{self.print_value()}]"
 
@@ -116,22 +117,22 @@ class VData:
         delta:      Time difference from previous vdata
     """
 
-    def __init__(self, pkt_num, tlvs):
+    def __init__(self, pkt_num: int, tlvs: List[TLV]):
         """
         Create new VData.
 
         :param pkt_num: Sequence number of the advertisement packet
         :param tlvs: TLVs parsed from the vendor -specific data
         """
-        self.tlvs = tlvs
-        self.pkt_num = pkt_num
-        self.created = datetime.datetime.now()
-        self.duplicates = 0
-        self.delta = None
+        self.tlvs: List[TLV] = tlvs
+        self.pkt_num: int = pkt_num
+        self.created: datetime.datetime = datetime.datetime.now()
+        self.duplicates: int = 0
+        self.delta: Optional[datetime.timedelta] = None
         for tlv in tlvs:
             tlv.pkt_count = pkt_num
 
-    def compare_to(self, vdata):
+    def compare_to(self, vdata: "VData") -> bool:
         """
         Compare this VData to another.
         :param vdata: VData to compare this to
@@ -145,14 +146,14 @@ class VData:
                 return False
         return True
 
-    def set_delta_from(self, vdata):
+    def set_delta_from(self, vdata: "VData"):
         """
         Set the delta time from given VData.
         :param vdata: vdata to calculate the time delta from
         """
         self.delta = self.created - vdata.created
 
-    def string(self):
+    def string(self) -> str:
         """Get a string containing description of this vdata and its contents"""
         output = []
         indent = "\t "
@@ -193,15 +194,15 @@ class Device:
     """
 
     def __init__(self, name: str):
-        self.address = name
-        self.vdata = []
+        self.address: str = name
+        self.vdata: List[VData] = []
         # Index of last Vdata received
-        self.last_vdata_idx = -1
-        self.counter = 0
-        self.last_update = None
-        self.idents = []
+        self.last_vdata_idx: int = -1
+        self.counter: int = 0
+        self.last_update: Optional[datetime.datetime] = None
+        self.idents: List[bytes] = []
 
-    def add_vdata(self, vdata):
+    def add_vdata(self, vdata: VData):
         """
         Add new vdata sent by this device.
 
@@ -231,7 +232,7 @@ class Device:
         self.last_vdata_idx += 1
 
 
-def parse_vendor_data(data):
+def parse_vendor_data(data: bytes) -> List[TLV]:
     """
     Parse the TLV structures from given vendor specific data.
 
@@ -261,18 +262,18 @@ def parse_vendor_data(data):
     return ret
 
 
-def get_uint16(buf):
+def get_uint16(buf: bytes) -> int:
     """Read one unsigned 16-bit little endian value from given buffer"""
     (val,) = struct.unpack("<H", buf)
     return val
 
 
-def decode_data(data):
+def decode_data(data: str) -> bytes:
     """Base64 decode data from given string"""
     return base64.b64decode(data)
 
 
-def parse_json_object(devices, data):
+def parse_json_object(devices: Dict[str, Device], data: str):
     """
     Read relevant data from JSON -encoded object.
 
@@ -312,7 +313,7 @@ def parse_json_object(devices, data):
                     dev.counter = cnt + 1
 
 
-def from_unix_socket(name):
+def from_unix_socket(name: str):
     """
     Start listening on UNIX socket for bluewalker to connect and read data
     from the socket.
