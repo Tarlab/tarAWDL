@@ -344,6 +344,7 @@ class Device:
                         this device
         idents:         array of different 'ident' (or whatever it really is)
                         blobs we have seen being transmitted by this device.
+        hashes:         ID hashes we have seen being transmitted
     """
 
     def __init__(self, name: str):
@@ -354,6 +355,7 @@ class Device:
         self.counter: int = 0
         self.last_update: Optional[datetime.datetime] = None
         self.idents: List[bytes] = []
+        self.hashes: List[IdHash] = []
 
     def add_vdata(self, vdata: VData):
         """
@@ -381,6 +383,15 @@ class Device:
                 ident = tlv.value_data()[2:]
                 if ident not in self.idents:
                     self.idents.append(ident)
+            if tlv.contains_ids():
+                ids = tlv.get_ids()
+                if ids is not None:
+                    unique = True
+                    for h in self.hashes:
+                        if h.compare_to(ids):
+                            unique = False
+                    if unique:
+                        self.hashes.append(ids)
 
         self.last_vdata_idx += 1
 
@@ -471,6 +482,13 @@ def print_summary(devices: Dict[str, Device]):
         print(f"{addr} (last update @{dev.last_update.isoformat()}) :")
         for vdata in dev.vdata:
             print(vdata.string())
+
+    print("ID Hashes:")
+    for addr, dev in devices.items():
+        if dev.hashes:
+            print(f"{addr}:")
+            for h in dev.hashes:
+                print(f"\t{h.print()}")
 
     print("Idents:")
     for addr, dev in devices.items():
