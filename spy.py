@@ -377,8 +377,8 @@ class Device:
 
         self.vdata.append(vdata)
         for tlv in vdata.tlvs:
-            if tlv.value_type() == 0x10 and tlv.value_length() > 0:
-                ident = tlv.value_data()
+            if tlv.value_type() == 0x10 and tlv.value_length() > 2:
+                ident = tlv.value_data()[2:]
                 if ident not in self.idents:
                     self.idents.append(ident)
 
