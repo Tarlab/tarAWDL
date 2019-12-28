@@ -480,32 +480,47 @@ def parse_json_object(devices: Dict[str, Device], data: str, live: bool = False)
                     dev.counter = cnt + 1
 
 
-def print_summary(devices: Dict[str, Device]):
-    print("Summary of received data:")
+def print_summary(devices: Dict[str, Device], ofile=None):
+    print("Summary of received data:", file=ofile)
     for addr, dev in devices.items():
-        print(f"{addr} (last update @{dev.last_update.isoformat()}) :")
+        print(f"{addr} (last update @{dev.last_update.isoformat()}) :", file=ofile)
         for vdata in dev.vdata:
-            print(vdata.string())
+            print(vdata.string(), file=ofile)
 
-    print("ID Hashes:")
+    print("ID Hashes:", file=ofile)
     for addr, dev in devices.items():
         if dev.hashes:
-            print(f"{addr}:")
+            print(f"{addr}:", file=ofile)
             for h in dev.hashes:
-                print(f"\t{h.print()}")
+                print(f"\t{h.print()}", file=ofile)
 
-    print("Idents:")
+    print("Idents:", file=ofile)
     for addr, dev in devices.items():
         if dev.idents:
             identstr = ",".join(
                 [f"{binascii.hexlify(bytearray(x))}" for x in dev.idents]
             )
             print(
-                f"\t{identstr} -> {addr} ({dev.vdata[0].created.isoformat()} - {dev.last_update.isoformat()})"
+                f"\t{identstr} -> {addr} ({dev.vdata[0].created.isoformat()} - {dev.last_update.isoformat()})",
+                file=ofile,
             )
 
 
-def from_unix_socket(name: str, live: bool):
+def summary(devices: Dict[str, Device], oname: Optional[str] = None):
+    ofile = None
+    try:
+        if oname is not None:
+            ofile = open(oname, "w")
+    except OSError as err:
+        print(f"Error: unable to open output file: {str(err)}, writing to stdout")
+
+    print_summary(devices, ofile=ofile)
+
+    if ofile is not None:
+        ofile.close()
+
+
+def from_unix_socket(name: str, live: bool, oname: Optional[str] = None):
     """
     Start listening on UNIX socket for bluewalker to connect and read data
     from the socket.
@@ -534,10 +549,10 @@ def from_unix_socket(name: str, live: bool):
 
     conn.close()
     sock.close()
-    print_summary(devices)
+    summary(devices, oname)
 
 
-def from_file(name: str, live: bool):
+def from_file(name: str, live: bool, oname: Optional[str] = None):
 
     if not os.path.exists(name):
         print(f"Error: file {name} not found")
@@ -548,7 +563,7 @@ def from_file(name: str, live: bool):
         for line in f:
             parse_json_object(devices, line, live)
 
-    print_summary(devices)
+    summary(devices, oname)
 
 
 if __name__ == "__main__":
@@ -563,10 +578,13 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "--output", help="Name of a file to write output to", action="store",
+    )
     args = parser.parse_args()
     if args.unix != "":
-        from_unix_socket(args.unix, args.live)
+        from_unix_socket(args.unix, args.live, args.output)
     elif args.file != "":
-        from_file(args.file, args.live)
+        from_file(args.file, args.live, args.output)
     else:
         print("use --unix <path> to specify the unix socket to listen on")
