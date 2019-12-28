@@ -466,6 +466,23 @@ def parse_json_object(devices: Dict[str, Device], data: str):
                     dev.counter = cnt + 1
 
 
+def print_summary(devices: Dict[str, Device]):
+    for addr, dev in devices.items():
+        print(f"{addr} (last update @{dev.last_update.isoformat()}) :")
+        for vdata in dev.vdata:
+            print(vdata.string())
+
+    print("Idents:")
+    for addr, dev in devices.items():
+        if dev.idents:
+            identstr = ",".join(
+                [f"{binascii.hexlify(bytearray(x))}" for x in dev.idents]
+            )
+            print(
+                f"\t{identstr} -> {addr} ({dev.vdata[0].created.isoformat()} - {dev.last_update.isoformat()})"
+            )
+
+
 def from_unix_socket(name: str):
     """
     Start listening on UNIX socket for bluewalker to connect and read data
@@ -495,28 +512,33 @@ def from_unix_socket(name: str):
 
     conn.close()
     sock.close()
+    print_summary(devices)
 
-    for addr, dev in devices.items():
-        print(f"{addr} (last update @{dev.last_update.isoformat()}) :")
-        for vdata in dev.vdata:
-            print(vdata.string())
 
-    print("Idents:")
-    for addr, dev in devices.items():
-        if dev.idents:
-            identstr = ",".join(
-                [f"{binascii.hexlify(bytearray(x))}" for x in dev.idents]
-            )
-            print(
-                f"\t{identstr} -> {addr} ({dev.vdata[0].created.isoformat()} - {dev.last_update.isoformat()})"
-            )
+def from_file(name: str):
+
+    if not os.path.exists(name):
+        print(f"Error: file {name} not found")
+        return
+
+    devices = {}
+    with open(name) as f:
+        for line in f:
+            parse_json_object(devices, line)
+
+    print_summary(devices)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--unix", default="")
+    parser.add_argument(
+        "--file", action="store", help="JSON file to parse data from", default=""
+    )
     args = parser.parse_args()
     if args.unix != "":
         from_unix_socket(args.unix)
+    elif args.file != "":
+        from_file(args.file)
     else:
         print("use --unix <path> to specify the unix socket to listen on")
