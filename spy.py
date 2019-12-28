@@ -437,7 +437,7 @@ def decode_data(data: str) -> bytes:
     return base64.b64decode(data)
 
 
-def parse_json_object(devices: Dict[str, Device], data: str):
+def parse_json_object(devices: Dict[str, Device], data: str, live: bool = False):
     """
     Read relevant data from JSON -encoded object.
 
@@ -471,6 +471,9 @@ def parse_json_object(devices: Dict[str, Device], data: str):
                         devices[addr] = dev
 
                     values = parse_vendor_data(decoded[2:])
+                    if live:
+                        for tlv in values:
+                            print(f"{addr}:{tlv.string()}")
                     cnt = dev.counter
                     vdata = VData(cnt, values)
                     dev.add_vdata(vdata)
@@ -478,6 +481,7 @@ def parse_json_object(devices: Dict[str, Device], data: str):
 
 
 def print_summary(devices: Dict[str, Device]):
+    print("Summary of received data:")
     for addr, dev in devices.items():
         print(f"{addr} (last update @{dev.last_update.isoformat()}) :")
         for vdata in dev.vdata:
@@ -501,7 +505,7 @@ def print_summary(devices: Dict[str, Device]):
             )
 
 
-def from_unix_socket(name: str):
+def from_unix_socket(name: str, live: bool):
     """
     Start listening on UNIX socket for bluewalker to connect and read data
     from the socket.
@@ -526,14 +530,14 @@ def from_unix_socket(name: str):
     devices = {}
     with conn.makefile() as file:
         for line in file:
-            parse_json_object(devices, line)
+            parse_json_object(devices, line, live)
 
     conn.close()
     sock.close()
     print_summary(devices)
 
 
-def from_file(name: str):
+def from_file(name: str, live: bool):
 
     if not os.path.exists(name):
         print(f"Error: file {name} not found")
@@ -542,7 +546,7 @@ def from_file(name: str):
     devices = {}
     with open(name) as f:
         for line in f:
-            parse_json_object(devices, line)
+            parse_json_object(devices, line, live)
 
     print_summary(devices)
 
@@ -553,10 +557,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--file", action="store", help="JSON file to parse data from", default=""
     )
+    parser.add_argument(
+        "--live",
+        help="Print data structures as they are received",
+        action="store_true",
+        default=False,
+    )
     args = parser.parse_args()
     if args.unix != "":
-        from_unix_socket(args.unix)
+        from_unix_socket(args.unix, args.live)
     elif args.file != "":
-        from_file(args.file)
+        from_file(args.file, args.live)
     else:
         print("use --unix <path> to specify the unix socket to listen on")
