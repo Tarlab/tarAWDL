@@ -153,8 +153,8 @@ class TLV:
                 return None
 
             self._ids = IdHash.from_data(self.value[idx + 1 : idx + 1 + 8])
-        elif self.type == 0x0F and self.value_length() >= 18:
-            self._ids = IdHash.from_data(self.value[5:])
+        elif self.type == 0x0F and self.value_length() >= 17:
+            self._ids = IdHash.from_data(self.value[5:], hlen=3)
 
         return self._ids
 
@@ -197,6 +197,7 @@ class TLV:
             output.append(f"Seqno: 0x{seq:02x}")
             output.append(f"Data: 0x{self.value[3:].hex()}")
         elif self.value_type() == 0x05:
+            # airdrop
             idx = self.first_nonzero_idx()
             if idx == -1 or self.value_length() < 18:
                 output.append(f"<malformed: 0x{self.value.hex()}>")
@@ -214,6 +215,31 @@ class TLV:
                     output.append(f"rest:{self.value[idx+1+8:].hex()}")
 
             # output.append(f"Raw:<{self.value.hex()}>")
+        elif self.value_type() == 0x0F:
+            # wifi join
+            if self.value_length() < 17:
+                output.append(f"<malformed: 0x{self.value.hex()}")
+            else:
+                output.append(f"flags:0x{self.value[0]:02x}")
+                output.append(f"type:0x{self.value[1]:02x}")
+                output.append(f"Tag:0x{self.value[2:5].hex()}")
+                ids = self.get_ids()
+                if ids is None:
+                    output.append(f"Hashes: <none>")
+                    output.append(f"Data: {self.value[5:].hex()}")
+                else:
+                    output.append(f"Hashes: {ids.print()}")
+        elif self.value_type() == 0x0E:
+            # hotspot
+            if self.value_length() < 6:
+                output.append(f"<malformed: 0x{self.value.hex()}")
+            else:
+                output.append(f"Data1: 0x{self.value[0:2].hex()}")
+                output.append(f"Battery: 0x{self.value[2]:02x}")
+                output.append(f"Data2: 0x{self.value[3]:02x}")
+                output.append(f"Cell srv: 0x{self.value[4]:02x}")
+                output.append(f"Cell bars: 0x{self.value[5]:02x}")
+
         else:
             output.append(f"{self.value.hex()}")
 
