@@ -29,6 +29,19 @@ import os
 import datetime
 from typing import Dict, List, Optional
 
+# Known types for TLV data,
+# based on data from https://github.com/hexway/apple_bleee
+KNOWN_TYPES: Dict[int, str] = {
+    0x05: "Airdrop",
+    0x07: "Airpods",
+    0x0B: "Watch_c",
+    0x0C: "Handoff",
+    0x0D: "Wifi_set",
+    0x0E: "Hotspot",
+    0x0F: "Wifi_join",
+    0x10: "Nearby",
+}
+
 
 class TLV:
     """
@@ -87,18 +100,33 @@ class TLV:
 
         :return: string containing the contents of value field.
         """
+
+        output = []
         if self.value_type() == 0x10 and self.value_length() > 2:
             # 'nearby' notification
-            output = []
-            output.append(f"({self.value[0]:02x}{self.value[1]:02x}")
-            output.append(f"{binascii.hexlify(bytearray(self.value[2:]))}")
-            return " ".join(output)
+            dev_status = int(self.value[0])
+            wifi_status = int(self.value[1])
+            output.append(f"Status: 0x{dev_status:02x} Wifi: 0x{wifi_status:02x}")
+            output.append(f"Data: 0x{self.value[2:].hex()}")
+        elif self.value_type() == 0x0C and self.value_length() > 2:
+            # 'handoff'
+            clip = int(self.value[0])
+            seq = get_uint16(self.value[1:3])
+            output.append(f"Clipboard: 0x{clip:02x}")
+            output.append(f"Seqno: 0x{seq:02x}")
+            output.append(f"Data: 0x{self.value[3:].hex()}")
         else:
-            return f"{binascii.hexlify(bytearray(self.value))}"
+            output.append(f"{self.value.hex()}")
+
+        return " ".join(output)
+
+    def print_type(self) -> str:
+        t_str = KNOWN_TYPES.get(self.type, "Unknown")
+        return f"0x{self.type:02x}({t_str})"
 
     def string(self) -> str:
         """Get string containing contents of this TLV"""
-        return f"t:0x{self.type:02x} l:{self.value_length()} bytes v:[{self.print_value()}]"
+        return f"t:{self.print_type()} l:{self.value_length()} bytes v:[{self.print_value()}]"
 
 
 class VData:
