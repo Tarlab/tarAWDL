@@ -1,0 +1,4 @@
+gitlab.com/jtaimisto/bluewalker v0.2.2 h1:9TR8NiOgJ+089hJddSsikKuXWc2qRThOdbAv1kpomEM=
+gitlab.com/jtaimisto/bluewalker v0.2.2/go.mod h1:2/uXYQ/wPSc3yrYKEPlSNQdQqC2372LrruwIfiCUJVs=
+golang.org/x/sys v0.0.0-20181128092732-4ed8d59d0b35 h1:YAFjXN64LMvktoUZH9zgY4lGc/msGN7HQfoSuKCgaDU=
+golang.org/x/sys v0.0.0-20181128092732-4ed8d59d0b35/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
