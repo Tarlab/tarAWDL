@@ -189,7 +189,7 @@ func createWifiSet(f1 fparam) []byte {
 	return buf.Bytes()
 }
 
-func expandParams(params []string) ([]fparam, error) {
+func expandParams(params []string) []fparam {
 
 	var ret = make([]fparam, len(params))
 	for i, param := range params {
@@ -198,13 +198,13 @@ func expandParams(params []string) ([]fparam, error) {
 			ret[i] = make([]byte, 0)
 		} else {
 			var err error
-			ret[i], err = parseByteArray(param, -1)
-			if err != nil {
-				return nil, fmt.Errorf("Invalid data for paramater %d (%v)", i+1, err)
+			if ret[i], err = parseByteArray(param, -1); err != nil {
+				fmt.Printf("Error: Invalid data for paramater %d (%v)", i+1, err)
+				os.Exit(255)
 			}
 		}
 	}
-	return ret, nil
+	return ret
 }
 
 func createPayload(p *params) []byte {
@@ -227,39 +227,19 @@ func createPayload(p *params) []byte {
 		var data []byte
 		switch t {
 		case typeWifiJoin:
-			plist, err := expandParams(p.fields[0:3])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(255)
-			}
+			plist := expandParams(p.fields[0:3])
 			data = createWifiJoin(plist[0], plist[1], plist[2], p.ids)
 		case typeAirdrop:
-			plist, err := expandParams(p.fields[0:3])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(255)
-			}
+			plist := expandParams(p.fields[0:3])
 			data = createAirdrop(plist[0], plist[1], plist[2], p.ids)
 		case typeNearby:
-			plist, err := expandParams(p.fields[0:3])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(255)
-			}
+			plist := expandParams(p.fields[0:3])
 			data = createNearby(plist[0], plist[1], plist[2])
 		case typeHotspot:
-			plist, err := expandParams(p.fields[0:5])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(255)
-			}
+			plist := expandParams(p.fields[0:5])
 			data = createHotspot(plist[0], plist[1], plist[2], plist[3], plist[4])
 		case typeWifiSet:
-			plist, err := expandParams(p.fields[0:1])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(255)
-			}
+			plist := expandParams(p.fields[0:1])
 			data = createWifiSet(plist[0])
 		default:
 			fmt.Printf("Error: unsupported packet type %s\n", p.pktType)
