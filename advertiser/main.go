@@ -26,8 +26,9 @@ const (
 const (
 	typeWifiJoin int = 0x0f
 	typeAirdrop      = 0x05
-	typeHotspot      = 0x03
+	typeHotspot      = 0x0e
 	typeNearby       = 0x10
+	typeWifiSet      = 0x0d
 )
 
 var dataTypes = map[string]int{
@@ -35,6 +36,7 @@ var dataTypes = map[string]int{
 	"airdrop":   typeAirdrop,
 	"hotspot":   typeHotspot,
 	"nearby":    typeNearby,
+	"wifi_set":  typeWifiSet,
 }
 
 type params struct {
@@ -169,7 +171,25 @@ func createNearby(f1 fparam, f2 fparam, f3 fparam) []byte {
 	return buf.Bytes()
 }
 
-func expandParams(params []string) ([]fparam, error) {
+func createHotspot(f1 fparam, f2 fparam, f3 fparam, f4 fparam, f5 fparam) []byte {
+	buf := bytes.Buffer{}
+
+	buf.Write(f1.or([]byte{0x01, 0x00})) // data1
+	buf.Write(f2.or([]byte{0x64}))       // battery
+	buf.Write(f3.or([]byte{0x00}))       // data2
+	buf.Write(f4.or([]byte{0x06}))       // Cell srv
+	buf.Write(f5.or([]byte{0x04}))       // Cell bars
+	return buf.Bytes()
+}
+
+func createWifiSet(f1 fparam) []byte {
+
+	buf := bytes.Buffer{}
+	buf.Write(f1.or([]byte{0x00, 0x00, 0x00, 0x00})) // IcloudID?
+	return buf.Bytes()
+}
+
+func expandParams(params []string) []fparam {
 
 	var ret = make([]fparam, len(params))
 	for i, param := range params {
@@ -178,13 +198,13 @@ func expandParams(params []string) ([]fparam, error) {
 			ret[i] = make([]byte, 0)
 		} else {
 			var err error
-			ret[i], err = parseByteArray(param, -1)
-			if err != nil {
-				return nil, fmt.Errorf("Invalid data for paramater %d (%v)", i+1, err)
+			if ret[i], err = parseByteArray(param, -1); err != nil {
+				fmt.Printf("Error: Invalid data for paramater %d (%v)", i+1, err)
+				os.Exit(255)
 			}
 		}
 	}
-	return ret, nil
+	return ret
 }
 
 func createPayload(p *params) []byte {
@@ -207,28 +227,20 @@ func createPayload(p *params) []byte {
 		var data []byte
 		switch t {
 		case typeWifiJoin:
-			plist, err := expandParams(p.fields[0:3])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(255)
-			}
+			plist := expandParams(p.fields[0:3])
 			data = createWifiJoin(plist[0], plist[1], plist[2], p.ids)
 		case typeAirdrop:
-			plist, err := expandParams(p.fields[0:3])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(255)
-			}
+			plist := expandParams(p.fields[0:3])
 			data = createAirdrop(plist[0], plist[1], plist[2], p.ids)
 		case typeNearby:
-			plist, err := expandParams(p.fields[0:3])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(255)
-			}
+			plist := expandParams(p.fields[0:3])
 			data = createNearby(plist[0], plist[1], plist[2])
 		case typeHotspot:
-			fallthrough
+			plist := expandParams(p.fields[0:5])
+			data = createHotspot(plist[0], plist[1], plist[2], plist[3], plist[4])
+		case typeWifiSet:
+			plist := expandParams(p.fields[0:1])
+			data = createWifiSet(plist[0])
 		default:
 			fmt.Printf("Error: unsupported packet type %s\n", p.pktType)
 			os.Exit(255)
